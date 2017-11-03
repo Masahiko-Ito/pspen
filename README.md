@@ -1,5 +1,7 @@
 # pspen - pen tool by powershell
 
+Draw line on desktop by mouse.
+
 ## How to use
 ```
 Draw : Left drag
