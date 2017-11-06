@@ -6,8 +6,10 @@ Add-Type -AssemblyName System.Windows.Forms
 #
 # Take screenshot
 #
-$pwidth = (gwmi win32_videocontroller).CurrentHorizontalResolution
-$pheight = (gwmi win32_videocontroller).CurrentVerticalResolution
+#$pwidth = (gwmi win32_videocontroller).CurrentHorizontalResolution
+#$pheight = (gwmi win32_videocontroller).CurrentVerticalResolution
+$pwidth = (gwmi win32_videocontroller | out-string -stream | select-string CurrentHorizontalResolution | foreach{$_ -replace "^.*: *",""} | sort | select-object -last 1)
+$pheight = (gwmi win32_videocontroller | out-string -stream | select-string CurrentVerticalResolution | foreach{$_ -replace "^.*: *",""} | sort | select-object -last 1)
 $pimg = New-Object System.Drawing.Bitmap([Int]$pwidth, [Int]$pheight)
 $pgr = [System.Drawing.Graphics]::FromImage($pimg)
 $pgr.CopyFromScreen((New-Object System.Drawing.Point(0,0)), (New-Object System.Drawing.Point(0,0)), $pimg.Size)
@@ -152,13 +154,13 @@ $mouse_down = {
 	if ($_.Button -eq "Right"){
 		$stat = $mw.ShowDialog()
 	}elseif ($_.Button -eq "Left"){
-		$global:oldx = [System.Windows.Forms.Cursor]::Position.X
-		$global:oldy = [System.Windows.Forms.Cursor]::Position.Y
-		$global:x = $oldx
-		$global:y = $oldy
-		$lgr.FillPie($brush, ($x -($pen.width / 2)), ($y - ($pen.width / 2)), $pen.width, $pen.width, 0, 360) # draw a Pie
+		$script:oldx = [System.Windows.Forms.Cursor]::Position.X
+		$script:oldy = [System.Windows.Forms.Cursor]::Position.Y
+		$script:x = $script:oldx
+		$script:y = $script:oldy
+		$lgr.FillPie($brush, ($script:x -($pen.width / 2)), ($script:y - ($pen.width / 2)), $pen.width, $pen.width, 0, 360) # draw a Pie
 		$w.Refresh()
-		$global:drag = $true
+		$script:drag = $true
 	}
 }
 $pb.Add_MouseDown($mouse_down)
@@ -166,11 +168,11 @@ $pb.Add_MouseDown($mouse_down)
 $mouse_up = {
 	if ($_.Button -eq "Right"){
 	}elseif ($_.Button -eq "Left"){
-		$global:oldx = -1
-		$global:oldy = -1
-		$global:x = -1
-		$global:y = -1
-		$global:drag = $false
+		$script:oldx = -1
+		$script:oldy = -1
+		$script:x = -1
+		$script:y = -1
+		$script:drag = $false
 	}
 }
 $pb.Add_MouseUp($mouse_up)
@@ -183,13 +185,13 @@ $pb.Add_MouseUp($mouse_up)
 #$pb.Add_DoubleClick($double_click)
 
 $mouse_move = {
-	if ($drag){
-		$global:oldx = $x
-		$global:oldy = $y
-		$global:x = [System.Windows.Forms.Cursor]::Position.X
-		$global:y = [System.Windows.Forms.Cursor]::Position.Y
-		if ($oldx -ge 0 -and $oldy -ge 0){
-			$lgr.DrawLine($pen, $oldx, $oldy, $x, $y) # draw a line
+	if ($script:drag){
+		$script:oldx = $x
+		$script:oldy = $y
+		$script:x = [System.Windows.Forms.Cursor]::Position.X
+		$script:y = [System.Windows.Forms.Cursor]::Position.Y
+		if ($script:oldx -ge 0 -and $script:oldy -ge 0){
+			$lgr.DrawLine($pen, $script:oldx, $script:oldy, $script:x, $script:y) # draw a line
 			$w.Refresh()
 		}
 	}
