@@ -1,11 +1,10 @@
 Add-Type -AssemblyName System.Windows.Forms
-
-#
+#============================================================
 # Function definition
-#
-
+#============================================================
+#------------------------------------------------------------
 # Calculate a, b (y = ax + b)
-
+#------------------------------------------------------------
 function getAB([Int]$x1, [Int]$y1, [Int]$x2, [Int]$y2){
 	if ($x1 -eq $x2){
 		$a = $null
@@ -16,9 +15,9 @@ function getAB([Int]$x1, [Int]$y1, [Int]$x2, [Int]$y2){
 	}
 	return @($a, $b)
 }
-
+#------------------------------------------------------------
 # Serach cross point
-
+#------------------------------------------------------------
 function getXY([Int]$x1, [Int]$y1, [Int]$x2, [Int]$y2, [Int]$x3, [Int]$y3, [Int]$x4, [Int]$y4){
 	$ab = getAB $x1 $y1 $x2 $y2
 	$a1 = $ab[0]
@@ -46,9 +45,9 @@ function getXY([Int]$x1, [Int]$y1, [Int]$x2, [Int]$y2, [Int]$x3, [Int]$y3, [Int]
 	}
 	return @($x, $y)
 }
-
+#------------------------------------------------------------
 # Judge cross or not
-
+#------------------------------------------------------------
 function isCross([Int]$x1, [Int]$y1, [Int]$x2, [Int]$y2, [Int]$x3, [Int]$y3, [Int]$x4, [Int]$y4){
 	$ret = $false
 	$xy = getXY $x1 $y1 $x2 $y2 $x3 $y3 $x4 $y4
@@ -90,16 +89,16 @@ function isCross([Int]$x1, [Int]$y1, [Int]$x2, [Int]$y2, [Int]$x3, [Int]$y3, [In
 	}
 	return $ret
 }
-
+#------------------------------------------------------------
 # add information of point into $points
-
+#------------------------------------------------------------
 function addPoint([Int]$x, [Int]$y, [Object]$color, [Int]$width){
 	$script:points_idx += 1
 	$points[$script:points_idx] = @($x, $y, $color, $width)
 }
-
+#------------------------------------------------------------
 # remove one line from $points
-
+#------------------------------------------------------------
 function removeLine([Int]$csx, [Int]$csy, [Int]$cex, [Int]$cey){
 	foreach ($i in $points.keys | sort-object -descending){
 		if ($points[$i][0] -eq -1 -and $points[$i][1] -eq -1){
@@ -132,9 +131,9 @@ function removeLine([Int]$csx, [Int]$csy, [Int]$cex, [Int]$cey){
 		}
 	}
 }
-
+#------------------------------------------------------------
 # Redraw from $points
-
+#------------------------------------------------------------
 function redrawPen(){
 	$pen_save = $pen
 	foreach ($i in $points.keys | sort-object){
@@ -163,173 +162,155 @@ function redrawPen(){
 	$w.Refresh()
 	$pen = $pen_save
 }
-
-#
+#------------------------------------------------------------
+# Get physical horizontal or vertical resolution
+#------------------------------------------------------------
+function getPhysicalResolution($hv){
+	$ret = (gwmi win32_videocontroller | out-string -stream | select-string $hv | foreach{$_ -replace "^.*: *",""} | sort | select-object -Last 1)
+	return $ret
+}
+#------------------------------------------------------------
+# Get Bitmap and Graphics
+#------------------------------------------------------------
+function getImgAndGraph([Int]$width, [Int]$height){
+	$img = New-Object System.Drawing.Bitmap($width, $height)
+	$gr = [System.Drawing.Graphics]::FromImage($img)
+	$gr.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+	return @($img, $gr)
+}
+#------------------------------------------------------------
+# Get button
+#------------------------------------------------------------
+function getButton([Int]$x, [Int]$y, [Int]$width, [Int]$height, [Object]$font, [String]$text, [Int]$alpha, [Int]$red, [Int]$green, [Int]$blue){
+	$btn = New-Object System.Windows.Forms.Button
+	$btn.Location = "$x,$y"
+	$btn.Size = "$width,$height"
+	$btn.Font = $font
+	$btn.text = $text
+	$btn.ForeColor = [System.Drawing.Color]::FromArgb($alpha, $red, $green, $blue)
+	return $btn
+}
+#============================================================
+# Make Main window
+#============================================================
+#------------------------------------------------------------
 # Take screenshot
-#
-#$pwidth = (gwmi win32_videocontroller).CurrentHorizontalResolution
-$pwidth = (gwmi win32_videocontroller | out-string -stream | select-string CurrentHorizontalResolution | foreach{$_ -replace "^.*: *",""} | sort | select-object -Last 1)
-#$pheight = (gwmi win32_videocontroller).CurrentVerticalResolution
-$pheight = (gwmi win32_videocontroller | out-string -stream | select-string CurrentVerticalResolution | foreach{$_ -replace "^.*: *",""} | sort | select-object -Last 1)
-$pimg = New-Object System.Drawing.Bitmap([Int]$pwidth, [Int]$pheight)
-$pgr = [System.Drawing.Graphics]::FromImage($pimg)
+#------------------------------------------------------------
+$pwidth = getPhysicalResolution "CurrentHorizontalResolution"
+$pheight = getPhysicalResolution "CurrentVerticalResolution"
+$ret = getImgAndGraph $pwidth $pheight
+$pimg = $ret[0]
+$pgr = $ret[1]
 $pgr.CopyFromScreen((New-Object System.Drawing.Point(0,0)), (New-Object System.Drawing.Point(0,0)), $pimg.Size)
-
-#
+#------------------------------------------------------------
 # Show screenshot
-#
+#------------------------------------------------------------
+$lwidth = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width
+$lheight = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height
 $w = New-Object System.Windows.Forms.Form
 $w.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
 $pb = New-Object System.Windows.Forms.PictureBox
-
-$lwidth = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width
-$lheight = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height
-$limg = New-Object System.Drawing.Bitmap($lwidth, $lheight)
-$lgr = [System.Drawing.Graphics]::FromImage($limg)
-$lgr.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+$ret = getImgAndGraph $lwidth $lheight
+$limg = $ret[0]
+$lgr = $ret[1]
 $lgr.DrawImage($pimg, 0, 0, $lwidth, $lheight)
-
 $w.ClientSize = $limg.Size
 $pb.ClientSize = $limg.Size
-
 $pb.Image = $limg
 $w.Controls.Add($pb)
-
-#
+#------------------------------------------------------------
 # PictureBox for Pen
-#
+#------------------------------------------------------------
 $pbpen = New-Object System.Windows.Forms.PictureBox
 $pbpen.BackColor = [System.Drawing.Color]::Transparent
-
-$lwidth = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width
-$lheight = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height
-$limgpen = New-Object System.Drawing.Bitmap($lwidth, $lheight)
-$lgrpen = [System.Drawing.Graphics]::FromImage($limgpen)
-$lgrpen.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-
+$ret = getImgAndGraph $lwidth $lheight
+$limgpen = $ret[0]
+$lgrpen = $ret[1]
 $pbpen.ClientSize = $limgpen.Size
-
 $pbpen.Image = $limgpen
 $pb.Controls.Add($pbpen)
-
-#
-# Menu
-#
-
+#============================================================
+# Make menu
+#============================================================
+#------------------------------------------------------------
+# Size definition
+#------------------------------------------------------------
+$btn_width = 120
+$btn_height = 30
+$menu_width = $btn_width * 3
+$menu_height = $btn_height * 3
+#------------------------------------------------------------
+# Font definition
+#------------------------------------------------------------
+$font_bold = New-Object System.Drawing.Font("Times New Roman",9,[System.Drawing.FontStyle]::Bold)
+$font_regular = New-Object System.Drawing.Font("Times New Roman",9,[System.Drawing.FontStyle]::Regular)
+#------------------------------------------------------------
 # Menu Window
-
+#------------------------------------------------------------
 $mw = New-Object System.Windows.Forms.Form
-$mw.ClientSize = "360,90"
+$mw.ClientSize = "$menu_width,$menu_height"
 $mw.startposition = "centerscreen"
 $mw.text = "Menu"
 $mw.MaximizeBox = $false
 $mw.MinimizeBox = $false
 $mw.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
-
-# Font definition
-
-$font_bold = New-Object System.Drawing.Font("Times New Roman",9,[System.Drawing.FontStyle]::Bold)
-$font_regular = New-Object System.Drawing.Font("Times New Roman",9,[System.Drawing.FontStyle]::Regular)
-
+#------------------------------------------------------------
 # RED Button
-
-$btn_red = New-Object System.Windows.Forms.Button
-$btn_red.Location = "0,0"
-$btn_red.Size = "120,30"
-$btn_red.Font = $font_bold
-$btn_red.text = "RED"
-$alpha = 255
-$red = 255
-$green = 0
-$blue = 0
-$btn_red.ForeColor = [System.Drawing.Color]::FromArgb($alpha, $red, $green, $blue)
+#------------------------------------------------------------
+#                    [Int]$x [Int]$y [Int]$width [Int]$height [Object]$font [String]$text [Int]$alpha [Int]$red [Int]$green [Int]$blue
+$btn_red = getButton 0 0 $btn_width $btn_height $font_bold "RED" 255 255 0 0
 $mw.Controls.Add($btn_red)
-
+#------------------------------------------------------------
 # GREEN Button
-
-$btn_green = New-Object System.Windows.Forms.Button
-$btn_green.Location = "120,0"
-$btn_green.Size = "120,30"
-$btn_green.Font = $font_regular
-$btn_green.text = "GREEN"
-$alpha = 255
-$red = 0
-$green = 255
-$blue = 0
-$btn_green.ForeColor = [System.Drawing.Color]::FromArgb($alpha, $red, $green, $blue)
+#------------------------------------------------------------
+#                    [Int]$x [Int]$y [Int]$width [Int]$height [Object]$font [String]$text [Int]$alpha [Int]$red [Int]$green [Int]$blue
+$btn_green = getButton ($btn_width * 1) 0 $btn_width $btn_height $font_regular "GREEN" 255 0 255 0
 $mw.Controls.Add($btn_green)
-
+#------------------------------------------------------------
 # Eraser Button
-
-$btn_eraser = New-Object System.Windows.Forms.Button
-$btn_eraser.Location = "240,0"
-$btn_eraser.Size = "120,30"
-$btn_eraser.Font = $font_regular
-$btn_eraser.text = "ERASER"
-$alpha = 255
-$red = 0
-$green = 0
-$blue = 0
-$btn_eraser.ForeColor = [System.Drawing.Color]::FromArgb($alpha, $red, $green, $blue)
+#------------------------------------------------------------
+#                    [Int]$x [Int]$y [Int]$width [Int]$height [Object]$font [String]$text [Int]$alpha [Int]$red [Int]$green [Int]$blue
+$btn_eraser = getButton ($btn_width * 2) 0 $btn_width $btn_height $font_regular "ERASER" 255 0 0 0
 $mw.Controls.Add($btn_eraser)
-
+#------------------------------------------------------------
 # PEN Width 5 Button
-
-$btn_width5 = New-Object System.Windows.Forms.Button
-$btn_width5.Location = "0,30"
-$btn_width5.Size = "120,30"
-$btn_width5.Font = $font_bold
-$btn_width5.text = "Small"
-$mw.Controls.Add($btn_width5)
-
+#------------------------------------------------------------
+#                    [Int]$x [Int]$y [Int]$width [Int]$height [Object]$font [String]$text [Int]$alpha [Int]$red [Int]$green [Int]$blue
+$btn_small = getButton 0 ($btn_height * 1) $btn_width $btn_height $font_bold "細ペン" 255 0 0 0
+$mw.Controls.Add($btn_small)
+#------------------------------------------------------------
 # PEN Width 10 Button
-
-$btn_width10 = New-Object System.Windows.Forms.Button
-$btn_width10.Location = "120,30"
-$btn_width10.Size = "120,30"
-$btn_width10.Font = $font_regular
-$btn_width10.text = "Middle"
-$mw.Controls.Add($btn_width10)
-
+#------------------------------------------------------------
+#                    [Int]$x [Int]$y [Int]$width [Int]$height [Object]$font [String]$text [Int]$alpha [Int]$red [Int]$green [Int]$blue
+$btn_middle = getButton ($btn_width * 1) ($btn_height * 1) $btn_width $btn_height $font_regular "中ペン" 255 0 0 0
+$mw.Controls.Add($btn_middle)
+#------------------------------------------------------------
 # PEN Width 20 Button
-
-$btn_width20 = New-Object System.Windows.Forms.Button
-$btn_width20.Location = "240,30"
-$btn_width20.Size = "120,30"
-$btn_width20.Font = $font_regular
-$btn_width20.text = "Large"
-$mw.Controls.Add($btn_width20)
-
+#------------------------------------------------------------
+#                    [Int]$x [Int]$y [Int]$width [Int]$height [Object]$font [String]$text [Int]$alpha [Int]$red [Int]$green [Int]$blue
+$btn_large = getButton ($btn_width * 2) ($btn_height * 1) $btn_width $btn_height $font_regular "太ペン" 255 0 0 0
+$mw.Controls.Add($btn_large)
+#------------------------------------------------------------
 # Close Menu Button
-
-$btn_mwclose = New-Object System.Windows.Forms.Button
-$btn_mwclose.Location = "0,60"
-$btn_mwclose.Size = "120,30"
-$btn_mwclose.Font = $font_regular
-$btn_mwclose.text = "Close Menu"
+#------------------------------------------------------------
+#                    [Int]$x [Int]$y [Int]$width [Int]$height [Object]$font [String]$text [Int]$alpha [Int]$red [Int]$green [Int]$blue
+$btn_mwclose = getButton 0 ($btn_height * 2) $btn_width $btn_height $font_regular "メニューを閉じる" 255 0 0 0
 $mw.Controls.Add($btn_mwclose)
-
-# Terminate pspen
-
-$btn_terminate = New-Object System.Windows.Forms.Button
-$btn_terminate.Location = "120,60"
-$btn_terminate.Size = "120,30"
-$btn_terminate.Font = $font_regular
-$btn_terminate.text = "Exit Pen"
+#------------------------------------------------------------
+# Terminate pspen Button
+#------------------------------------------------------------
+#                    [Int]$x [Int]$y [Int]$width [Int]$height [Object]$font [String]$text [Int]$alpha [Int]$red [Int]$green [Int]$blue
+$btn_terminate = getButton ($btn_width * 1) ($btn_height * 2) $btn_width $btn_height $font_regular "ペンを終了する" 255 0 0 0
 $mw.Controls.Add($btn_terminate)
-
-# Screenshot
-
-$btn_screenshot = New-Object System.Windows.Forms.Button
-$btn_screenshot.Location = "240,60"
-$btn_screenshot.Size = "120,30"
-$btn_screenshot.Font = $font_regular
-$btn_screenshot.text = "Save Image"
+#------------------------------------------------------------
+# Screenshot Button
+#------------------------------------------------------------
+#                    [Int]$x [Int]$y [Int]$width [Int]$height [Object]$font [String]$text [Int]$alpha [Int]$red [Int]$green [Int]$blue
+$btn_screenshot = getButton ($btn_width * 2) ($btn_height * 2) $btn_width $btn_height $font_regular "画像保存" 255 0 0 0
 $mw.Controls.Add($btn_screenshot)
-
-#
+#============================================================
 # Initialize work
-#
+#============================================================
 $oldx = -1
 $oldy = -1
 $x = -1
@@ -340,39 +321,30 @@ $eraser = $false
 $points_idx = -1
 $points = @{}
 addPoint -1 -1 $null -1
-
-#
+#============================================================
 # Initial Pen setting
-#
-$pen = new-object Drawing.Pen black
-$alpha = 255
-$red = 255
-$green = 0
-$blue = 0
-$width = 5
-$pen.color = [System.Drawing.Color]::FromArgb($alpha, $red, $green, $blue)
-$pen.width = $width
+#============================================================
+$pen = new-object Drawing.Pen red
+$pen.color = [System.Drawing.Color]::FromArgb(255, 255, 0, 0)
+$pen.width = 5
 $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
 $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
 
 $brush = [System.Drawing.Brushes]::black
-$brush.color = [System.Drawing.Color]::FromArgb($alpha, $red, $green, $blue)
-
-#
-# Event handler
-#
+$brush.color = [System.Drawing.Color]::FromArgb(255, 255, 0, 0)
+#============================================================
+# Main Event handler
+#============================================================
 $mouse_down = {
 	if ($_.Button -eq "Right"){
 		$stat = $mw.ShowDialog()
 	}elseif ($_.Button -eq "Left"){
+		$script:oldx = [System.Windows.Forms.Cursor]::Position.X
+		$script:oldy = [System.Windows.Forms.Cursor]::Position.Y
 		if ($script:eraser){
-			$script:oldx = [System.Windows.Forms.Cursor]::Position.X
-			$script:oldy = [System.Windows.Forms.Cursor]::Position.Y
 		}else{
-			$script:oldx = [System.Windows.Forms.Cursor]::Position.X
-			$script:oldy = [System.Windows.Forms.Cursor]::Position.Y
-			$script:x = $oldx
-			$script:y = $oldy
+			$script:x = $script:oldx
+			$script:y = $script:oldy
 			$lgrpen.FillPie($brush, ($script:x -($pen.width / 2)), ($script:y - ($pen.width / 2)), $pen.width, $pen.width, 0, 360) # draw a Pie
 			$w.Refresh()
 			addPoint $script:x $script:y $brush.color $pen.width
@@ -381,7 +353,7 @@ $mouse_down = {
 	}
 }
 $pbpen.Add_MouseDown($mouse_down)
-
+#------------------------------------------------------------
 $mouse_up = {
 	if ($_.Button -eq "Right"){
 	}elseif ($_.Button -eq "Left"){
@@ -392,35 +364,31 @@ $mouse_up = {
 			$lgrpen.Clear($pbpen.BackColor)
 			redrawPen
 			$w.Refresh()
-			$script:oldx = -1
-			$script:oldy = -1
-			$script:x = -1
-			$script:y = -1
 		}else{
-			$script:oldx = -1
-			$script:oldy = -1
-			$script:x = -1
-			$script:y = -1
 			addPoint -1 -1 $null -1
 			$script:drag = $false
 		}
+		$script:oldx = -1
+		$script:oldy = -1
+		$script:x = -1
+		$script:y = -1
 	}
 }
 $pbpen.Add_MouseUp($mouse_up)
-
-#$double_click = {
-#	if ($_.Button -eq "Right"){
-#	}elseif ($_.Button -eq "Left"){
-#	}
-#}
-#$pbpen.Add_DoubleClick($double_click)
-
+#------------------------------------------------------------
+$double_click = {
+	if ($_.Button -eq "Right"){
+	}elseif ($_.Button -eq "Left"){
+	}
+}
+$pbpen.Add_DoubleClick($double_click)
+#------------------------------------------------------------
 $mouse_move = {
 	if ($drag){
 		if ($script:eraser){
 		}else{
-			$script:oldx = $x
-			$script:oldy = $y
+			$script:oldx = $script:x
+			$script:oldy = $script:y
 			$script:x = [System.Windows.Forms.Cursor]::Position.X
 			$script:y = [System.Windows.Forms.Cursor]::Position.Y
 			if ($script:oldx -ge 0 -and $script:oldy -ge 0){
@@ -432,19 +400,14 @@ $mouse_move = {
 	}
 }
 $pbpen.Add_MouseMove($mouse_move)
-
-#
+#============================================================
 # Menu Event handler
-#
+#============================================================
 $btn_red_click = {
 	if ($_.Button -eq "Right"){
 	}elseif ($_.Button -eq "Left"){
-		$alpha = 255
-		$red = 255
-		$green = 0
-		$blue = 0
-		$pen.color = [System.Drawing.Color]::FromArgb($alpha, $red, $green, $blue)
-		$brush.color = [System.Drawing.Color]::FromArgb($alpha, $red, $green, $blue)
+		$pen.color = [System.Drawing.Color]::FromArgb(255, 255, 0, 0)
+		$brush.color = [System.Drawing.Color]::FromArgb(255, 255, 0, 0)
 		$btn_red.Font = $font_bold
 		$btn_green.Font = $font_regular
 		$btn_eraser.Font = $font_regular
@@ -452,16 +415,12 @@ $btn_red_click = {
 	}
 }
 $btn_red.Add_Click($btn_red_click)
-
+#------------------------------------------------------------
 $btn_green_click = {
 	if ($_.Button -eq "Right"){
 	}elseif ($_.Button -eq "Left"){
-		$alpha = 255
-		$red = 0
-		$green = 255
-		$blue = 0
-		$pen.color = [System.Drawing.Color]::FromArgb($alpha, $red, $green, $blue)
-		$brush.color = [System.Drawing.Color]::FromArgb($alpha, $red, $green, $blue)
+		$pen.color = [System.Drawing.Color]::FromArgb(255, 0, 255, 0)
+		$brush.color = [System.Drawing.Color]::FromArgb(255, 0, 255, 0)
 		$btn_red.Font = $font_regular
 		$btn_green.Font = $font_bold
 		$btn_eraser.Font = $font_regular
@@ -469,7 +428,7 @@ $btn_green_click = {
 	}
 }
 $btn_green.Add_Click($btn_green_click)
-
+#------------------------------------------------------------
 $btn_eraser_click = {
 	if ($_.Button -eq "Right"){
 	}elseif ($_.Button -eq "Left"){
@@ -477,49 +436,43 @@ $btn_eraser_click = {
 		$btn_green.Font = $font_regular
 		$btn_eraser.Font = $font_bold
 		$script:eraser = $true
-
-#		$lgrpen.Clear($pbpen.BackColor)
-#		$w.Refresh()
 	}
 }
 $btn_eraser.Add_Click($btn_eraser_click)
-
-$btn_width5_click = {
+#------------------------------------------------------------
+$btn_small_click = {
 	if ($_.Button -eq "Right"){
 	}elseif ($_.Button -eq "Left"){
-		$width = 5
-		$pen.width = $width
-		$btn_width5.Font = $font_bold
-		$btn_width10.Font = $font_regular
-		$btn_width20.Font = $font_regular
+		$pen.width = 5
+		$btn_small.Font = $font_bold
+		$btn_middle.Font = $font_regular
+		$btn_large.Font = $font_regular
 	}
 }
-$btn_width5.Add_Click($btn_width5_click)
-
-$btn_width10_click = {
+$btn_small.Add_Click($btn_small_click)
+#------------------------------------------------------------
+$btn_middle_click = {
 	if ($_.Button -eq "Right"){
 	}elseif ($_.Button -eq "Left"){
-		$width = 10
-		$pen.width = $width
-		$btn_width5.Font = $font_regular
-		$btn_width10.Font = $font_bold
-		$btn_width20.Font = $font_regular
+		$pen.width = 10
+		$btn_small.Font = $font_regular
+		$btn_middle.Font = $font_bold
+		$btn_large.Font = $font_regular
 	}
 }
-$btn_width10.Add_Click($btn_width10_click)
-
-$btn_width20_click = {
+$btn_middle.Add_Click($btn_middle_click)
+#------------------------------------------------------------
+$btn_large_click = {
 	if ($_.Button -eq "Right"){
 	}elseif ($_.Button -eq "Left"){
-		$width = 20
-		$pen.width = $width
-		$btn_width5.Font = $font_regular
-		$btn_width10.Font = $font_regular
-		$btn_width20.Font = $font_bold
+		$pen.width = 20
+		$btn_small.Font = $font_regular
+		$btn_middle.Font = $font_regular
+		$btn_large.Font = $font_bold
 	}
 }
-$btn_width20.Add_Click($btn_width20_click)
-
+$btn_large.Add_Click($btn_large_click)
+#------------------------------------------------------------
 $btn_mwclose_click = {
 	if ($_.Button -eq "Right"){
 	}elseif ($_.Button -eq "Left"){
@@ -527,7 +480,7 @@ $btn_mwclose_click = {
 	}
 }
 $btn_mwclose.Add_Click($btn_mwclose_click)
-
+#------------------------------------------------------------
 $btn_terminate_click = {
 	if ($_.Button -eq "Right"){
 	}elseif ($_.Button -eq "Left"){
@@ -536,7 +489,7 @@ $btn_terminate_click = {
 	}
 }
 $btn_terminate.Add_Click($btn_terminate_click)
-
+#------------------------------------------------------------
 $btn_screenshot_click = {
 	if ($_.Button -eq "Right"){
 	}elseif ($_.Button -eq "Left"){
@@ -552,14 +505,12 @@ $btn_screenshot_click = {
 	}
 }
 $btn_screenshot.Add_Click($btn_screenshot_click)
-
-#
+#============================================================
 # Set Cross cursor
-#
+#============================================================
 $pbpen.Cursor = [System.Windows.Forms.Cursors]::Cross
-
-#
-# Start
-#
+#============================================================
+# Go!
+#============================================================
 $stat = $w.ShowDialog()
 
